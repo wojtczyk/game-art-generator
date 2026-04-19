@@ -1,0 +1,22 @@
+# Swift Package Manager
+/.build/
+/.swiftpm/
+/Packages/
+
+# Xcode user and derived data
+/DerivedData/
+*.xcuserdatad/
+*.xcuserstate
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# macOS and editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*.log
+
+# Generated artwork review batches
+*_art-for-review/
