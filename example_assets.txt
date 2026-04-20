@@ -1,9 +1,0 @@
-backgrounds/forest/day-sky, bright forest canopy with soft clouds and layered parallax depth
-backgrounds/caves/crystal-hall, glowing cave corridor with blue crystals and drifting mist
-characters/hero/idle, brave fox adventurer standing ready with satchel and scarf
-characters/hero/run, brave fox adventurer sprinting forward with a dynamic action pose
-enemies/slime/idle, round mossy slime with playful eyes and a tiny bounce
-enemies/bat/fly, cave bat enemy gliding with sharp wings and glowing eyes
-props/crates/wooden-crate, worn wooden crate with metal corners for platform levels
-pickups/coin/gold-coin, shiny gold coin with a star emblem and arcade sparkle
-ui/title/logo, bold side scroller logo with adventurous fantasy lettering

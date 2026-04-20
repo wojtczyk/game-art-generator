@@ -14,7 +14,7 @@ Guidance for agents working in this repository.
 - `Sources/GameArtGenerator/main.swift`: CLI parsing, asset validation, wrapper-app relaunch, foreground activation, and image generation.
 - `README.md`: user-facing build and usage documentation. Keep it in sync with behavior changes.
 - `LICENSE.md`: MIT license.
-- `example_assets.txt`: valid sample asset list for a side scroller game.
+- `assets/example.txt`: valid sample asset list for a side scroller game.
 
 ## Runtime Constraints
 
@@ -27,17 +27,17 @@ Guidance for agents working in this repository.
 ## CLI Behavior To Preserve
 
 - Required parameters:
-  - `--list` / `-l`
+  - `--assets` / `-a`
   - `--style` / `-s`
   - `--n` / `-n`
 - Supported styles are currently `animation`, `illustration`, and `sketch`.
 - The asset list format is one asset per line:
-  `asset_path/asset_file_name, description prompt`
+  `asset_path/asset_file_name, "description prompt"`
 - Validation should continue to report descriptive line-numbered errors for malformed input.
-- Description prompts must stay limited to 100 characters.
+- Description prompts must be wrapped in double quotes and stay limited to 100 characters inside the quotes.
 - Duplicate asset paths should be rejected to prevent overwrites.
-- Output should be written under a timestamped folder in the current working directory:
-  `yyyy-mm-dd_HH.MM_art-for-review/`
+- Output should be written beside the assets file under a timestamped folder named:
+  `yyyy-mm-dd_HH.MM_inputfile-art-for-review/`
 
 ## Build And Verification
 
@@ -46,7 +46,7 @@ Guidance for agents working in this repository.
 - Release build:
   `swift build -c release`
 - Typical manual run:
-  `.build/release/game-art-generator --list example_assets.txt --style illustration --n 2`
+  `.build/release/game-art-generator --assets assets/example.txt --style illustration --n 2`
 - When verifying generation behavior, use a real interactive macOS desktop session and keep the app frontmost while images are being created.
 
 ## Change Guidelines

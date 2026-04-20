@@ -21,7 +21,7 @@ struct GameArtGeneratorCLI {
 
             if #available(macOS 15.4, *) {
                 let options = try CommandLineOptions.parse(arguments: arguments)
-                let assets = try AssetListParser.parse(from: options.listURL)
+                let assets = try AssetListParser.parse(from: options.assetsURL)
                 try await ForegroundApplicationCoordinator.prepareIfNeeded()
                 try await ImageGenerationRunner(options: options, assets: assets).run()
             } else {
@@ -444,12 +444,12 @@ enum ForegroundApplicationCoordinator {
 }
 
 struct CommandLineOptions {
-    let listURL: URL
+    let assetsURL: URL
     let styleName: String
     let imageCount: Int
 
     static func parse(arguments: [String]) throws -> CommandLineOptions {
-        var listPath: String?
+        var assetsPath: String?
         var styleName: String?
         var imageCount: Int?
 
@@ -458,12 +458,12 @@ struct CommandLineOptions {
             let argument = arguments[index]
 
             switch argument {
-            case "--list", "-l":
+            case "--assets", "-a":
                 index += 1
                 guard index < arguments.count else {
                     throw CLIError.invalidArguments("Missing value for \(argument).")
                 }
-                listPath = arguments[index]
+                assetsPath = arguments[index]
             case "--style", "-s":
                 index += 1
                 guard index < arguments.count else {
@@ -486,8 +486,8 @@ struct CommandLineOptions {
             index += 1
         }
 
-        guard let listPath else {
-            throw CLIError.invalidArguments("Missing required `--list` argument.")
+        guard let assetsPath else {
+            throw CLIError.invalidArguments("Missing required `--assets` argument.")
         }
 
         guard let styleName else {
@@ -498,8 +498,8 @@ struct CommandLineOptions {
             throw CLIError.invalidArguments("Missing required `--n` argument.")
         }
 
-        let listURL = URL(fileURLWithPath: NSString(string: listPath).expandingTildeInPath)
-        return CommandLineOptions(listURL: listURL, styleName: styleName, imageCount: imageCount)
+        let assetsURL = URL(fileURLWithPath: NSString(string: assetsPath).expandingTildeInPath)
+        return CommandLineOptions(assetsURL: assetsURL, styleName: styleName, imageCount: imageCount)
     }
 
     static func isHelpRequest(arguments: [String]) -> Bool {
@@ -508,10 +508,10 @@ struct CommandLineOptions {
 
     static let usage = """
     Usage:
-      game-art-generator --list <assets.txt> --style <animation|illustration|sketch> --n <count>
+      game-art-generator --assets <assets.txt> --style <animation|illustration|sketch> --n <count>
 
     Options:
-      --list, -l    Path to the asset list file.
+      --assets, -a  Path to the asset list file.
       --style, -s   Image Playground style name.
       --n, -n       Number of images to generate per asset entry.
       --help, -h    Show this help message.
@@ -550,9 +550,9 @@ enum AssetListParser {
 
         if lines.isEmpty {
             throw CLIError.invalidAssetList("""
-            The asset list is empty.
+            The assets file is empty.
             Add one asset per line using the format:
-              asset_path/asset_file_name, description prompt
+              asset_path/asset_file_name, "description prompt"
             """)
         }
 
@@ -574,7 +574,7 @@ enum AssetListParser {
         if !errors.isEmpty {
             let details = errors.map(\.formatted).joined(separator: "\n")
             throw CLIError.invalidAssetList("""
-            Invalid asset list file:
+            Invalid assets file:
             \(details)
             """)
         }
@@ -603,21 +603,43 @@ enum AssetListParser {
                 AssetValidationError(
                     lineNumber: lineNumber,
                     content: rawLine,
-                    reason: "Expected `asset_path/asset_file_name, description prompt`."
+                    reason: "Expected `asset_path/asset_file_name, \"description prompt\"`."
                 )
             )
         }
 
         let rawPath = String(trimmedLine[..<separatorIndex]).trimmingCharacters(in: .whitespaces)
-        let rawPrompt = String(trimmedLine[trimmedLine.index(after: separatorIndex)...])
+        let rawPromptField = String(trimmedLine[trimmedLine.index(after: separatorIndex)...])
             .trimmingCharacters(in: .whitespaces)
 
-        guard !rawPath.isEmpty, !rawPrompt.isEmpty else {
+        guard !rawPath.isEmpty, !rawPromptField.isEmpty else {
             return .failure(
                 AssetValidationError(
                     lineNumber: lineNumber,
                     content: rawLine,
-                    reason: "Both the asset path and description prompt are required."
+                    reason: "Both the asset path and quoted description prompt are required."
+                )
+            )
+        }
+
+        guard rawPromptField.first == "\"", rawPromptField.last == "\"", rawPromptField.count >= 2 else {
+            return .failure(
+                AssetValidationError(
+                    lineNumber: lineNumber,
+                    content: rawLine,
+                    reason: "Description prompt must be wrapped in double quotes."
+                )
+            )
+        }
+
+        let rawPrompt = String(rawPromptField.dropFirst().dropLast())
+
+        guard !rawPrompt.isEmpty else {
+            return .failure(
+                AssetValidationError(
+                    lineNumber: lineNumber,
+                    content: rawLine,
+                    reason: "Description prompt must not be empty."
                 )
             )
         }
@@ -741,6 +763,7 @@ struct ImageGenerationRunner {
             StandardOutput.write(
                 "[\(index + 1)/\(assets.count)] Generating \(options.imageCount) image(s) for \(asset.relativeAssetPath)\n"
             )
+            StandardOutput.write("  prompt: \"\(asset.prompt)\"\n")
             try await generateImages(for: asset, using: creator, style: style, outputDirectory: outputDirectory)
         }
 
@@ -769,9 +792,10 @@ struct ImageGenerationRunner {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd_HH.mm"
 
-        let directoryName = "\(formatter.string(from: Date()))_art-for-review"
-        let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-        let outputDirectory = currentDirectory.appendingPathComponent(directoryName, isDirectory: true)
+        let inputFileName = options.assetsURL.deletingPathExtension().lastPathComponent
+        let directoryName = "\(formatter.string(from: Date()))_\(inputFileName)-art-for-review"
+        let inputDirectory = options.assetsURL.deletingLastPathComponent()
+        let outputDirectory = inputDirectory.appendingPathComponent(directoryName, isDirectory: true)
 
         do {
             try FileManager.default.createDirectory(
@@ -882,9 +906,9 @@ enum CLIError: LocalizedError {
         case .unsupportedOS:
             return "Image Playground programmatic generation requires macOS 15.4 or newer."
         case .fileNotFound(let path):
-            return "Asset list file not found: \(path)"
+            return "Assets file not found: \(path)"
         case .unreadableFile(let path, let underlying):
-            return "Could not read asset list file at \(path): \(underlying.localizedDescription)"
+            return "Could not read assets file at \(path): \(underlying.localizedDescription)"
         case .invalidAssetList(let details):
             return details
         case .styleUnavailable(let message):

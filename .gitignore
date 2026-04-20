@@ -18,5 +18,5 @@
 *.swo
 *.log
 
-# Generated artwork review batches
-*_art-for-review/
+# Generated artwork
+*.png
